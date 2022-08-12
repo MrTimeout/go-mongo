@@ -159,3 +159,15 @@ use('sample_training'); db.trips.find({ 'birth year': { $ne: "" } }, { 'birth ye
 // indexes are created using "createIndex"
 
 // upsert is used when no one document is found, but we want to insert if not found.
+
+use('sample_training'); db.trips.find({})
+
+use('sample_training'); db.trips.find({'start time': { "$nin": [ ISODate("2016-01-01T00:07:39.000Z"), 1, "hello"] }}).limit(1)
+
+// gt, gte, lt, lte does not work with strings
+use('sample_training'); db.trips.find({"usertype": { $gt: "Subscriber" }}, { _id: 0, usertype: 1 }).limit(4)
+// gt, gte, lt, lte does work with arrays, matching if some value is <condition> than the target, which have to be an array.
+// They have to match one on one, by position. so the array inside $gt, have to be of x > len(field)
+use('sample_training'); db.trips.find({"start station location.coordinates": { $gt: [-100, -80, 100] }}).limit(3) // it works
+use('sample_training'); db.trips.find({"tripduration": { $gt: [20] }}).limit(1) // it doesn't
+use('sample_training'); db.trips.find({"_id": { $gt: ObjectId("572bb8222b288919b68abf6a") }})

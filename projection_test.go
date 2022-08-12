@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	o "github.com/MrTimeout/go-mongo/operator"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -32,7 +33,7 @@ func TestProjection(t *testing.T) {
 			First string `bson:"first"`
 			Third int    `bson:"third"`
 		}
-		filter := f("first", eq("hello"))
+		filter := o.F("first", o.Eq("hello"))
 		options := options.Find().SetProjection(bson.D{{Key: "first", Value: 1}, {Key: "third", Value: 1}, {Key: "Fifth", Value: 1}, {Key: "_id", Value: 0}})
 
 		insertDocuments(t, db, projectionCollection, []longDumbStruct{
