@@ -1,0 +1,161 @@
+use('testing')
+
+db.createCollection('users', {
+  validator: {
+    $jsonSchema: {
+      bsonType: 'object',
+      required: ['name', 'surname', 'birth year', 'username', 'password'],
+      title: 'user validation',
+      additionalProperties: false,
+      properties: {
+        _id: {},
+        name: {
+          bsonType: 'string',
+          title: 'name validation. minimum of 3',
+          description: 'real name of the user',
+          minLength: 3
+        },
+        surname: {
+          bsonType: 'string',
+          title: 'surname validation. Minimum of 3',
+          description: 'real surname of the user',
+          minLength: 3
+        },
+        'birth year': {
+          bsonType: 'date',
+          description: 'birth year of the user'
+        },
+        'username': {
+          bsonType: 'string',
+          title: 'username validation. Minimum length of 3',
+          description: 'username which uniquely identifies the user',
+          minLength: 3
+        },
+        'password': {
+          bsonType: 'string',
+          description: 'hash of the password'
+        },
+        'languages of preference': {
+          bsonType: 'array',
+          title: 'languages of preference validation. Minimum items is 2 and maximun of 20 being unique items',
+          description: 'languages of preference of the user.',
+          uniqueItems: true,
+          maxItems: 20,
+          minItems: 2
+        },
+        'salary': {
+          bsonType: 'double',
+          title: 'salary validation. Minimum of 100.0 with a maximun 20.000 being exclusive. By default, is inclusive.',
+          maximum: 20000,
+          exclusiveMaximum: true,
+          minimum: 100,
+          exclusiveMinimum: true, 
+          description: 'salary of the user'
+        }
+      }
+    }
+  },
+  validationLevel: "strict",
+  validationAction: "error"
+})
+
+// We have to use runCommand inside a collection that already exists.
+// Running db.runCommand({collMod: 'users', validator: {$jsonSchema: {}}, validationLevel: 'moderate|strict', validationAction: 'error|warn'})
+// validationLevel, which is a property that we can add in the runCommand or createCollection.
+// moderate will only will apply jsonSchema to the ones that matches the schema.
+
+// validationAction, which is a property that we can add in the runCommand or createCollection.
+
+// title property is here to help us with the validation. It allows us to describe the validation more in detail.
+
+// You cannot specify a validator for collections in the admin, local and config database.
+
+// You cannot specify a validator for system.* collections.
+
+// We can even 'bypassDocumentValidation' if we have the rights, but it does not make sense.
+
+// When using float numbers, use a different value than xxx.0. Mongo will understand that this number is an integer. Jesus.
+db.users.insertMany([
+  {'name': 'Ivan', 'surname': 'Martinez Alberte', 'birth year': new Date('1997-12-24'), 'username': 'MrTimeout', 'password': 'this is the hash of my password', 'languages of preference': ['golang', 'java', 'python', 'mongodb'], 'salary': 2200.5},
+  {'name': 'Juan', 'surname': 'Perez Garnizo', 'birth year': new Date('1977-02-12'), 'username': 'JuanPG', 'password': 'this is the hash of my password', 'languages of preference': ['ruby', 'python', 'shell'], 'salary': 1200.3},
+  {'name': 'Pedro', 'surname': 'Gonzalez Gonzalez', 'birth year': new Date('1987-04-14'), 'username': 'PedroGG', 'password': 'this is the hash of my password', 'languages of preference': ['docker', 'kubernetes', 'ansible'], 'salary': 5200.3}
+])
+
+// We can set ordered to false, so all the documents with different _id (if set) will be inserted and the ones that are repeated, will not.
+// If we use ordered equals to true (default) it will insert sequentally.
+
+use('testing'); db.dumb.updateOne({ 
+  _id: '62f3328143f7fe8de52d0b30'
+}, { 
+  $set: { gender: "female" },
+  $unset: { "balance": "" },
+  $push: { 
+    "tags": { $each: ["first", "second"] }, 
+    "friends": { "id": 3, "name": "this is the name baby" }
+  },
+  $inc: { age: 2 } }
+)
+
+// We can use $push to create a field with an array with some values.
+
+use('testing')
+
+use('sample_training')
+
+use('sample_training'); db.zips.find({pop: {$lt: 1000}}).count()
+
+use('sample_training'); db.trips.aggregate([{ $match: { 'birth year': { $gt: 1998 } } }, { $count: 'birth year' }])
+
+use('sample_training'); db.trips.find({}).limit(1)
+
+use('sample_training'); db.trips.aggregate([{ $match: { 'birth year': { $gt: 1998 } } }, { $project: { 'birth year': 1 } }, { $count: 'birth year' }])
+use('sample_training'); db.trips.aggregate([{ $match: { 'birth year': { $eq: 1998 } } }, { $project: { 'birth year': 1 } }, { $count: 'birth year' }])
+
+// https://www.mongodb.com/community/forums/t/facet-with-project/154552
+// https://www.mongodb.com/docs/manual/reference/operator/aggregation/facet/
+// https://stackoverflow.com/questions/39534979/how-to-efficiently-count-filtered-documents-in-mongodb-group-operator
+use('sample_training'); db.trips.aggregate([{ $facet: { 
+  greaterThan1998: [ { $match: { 'birth year': { $gt:1998 } } }, { $count: 'birth year' } ],
+  eqTo1998: [ { $match: { 'birth year': { $eq: 1998 } } }, { $count: 'birth year' } ]
+}}, 
+{ $project: { total: { $subtract: [ { $arrayElemAt: [ "$greaterThan1998.birth year", 0] }, { $arrayElemAt: [ "$eqTo1998.birth year", 0 ] } ] }}}])
+
+
+use('sample_training'); db.inspections.find({ result: "Out of Business", sector: "Home Improvement Contractor - 100" }, {result: 1, sector: 1})
+
+use('sample_training'); db.zips.find({ pop: { $gte: 5000, $lte: 1000000 } }).count()
+
+use('sample_training'); db.companies.find({ $and: [{ $or: [ { category_code: "social" }, { category_code: "web" } ]}, {$or: [ { founded_year: 2004 }, { founded_month: 10 } ] }]}, { founded_year: 1, founded_month: 1, category_code: 1, _id: 0}).count()
+
+use('sample_training'); db.trips.find({$expr: { $eq: [ "$start station id", "$end station id" ] }}, { 'start station id': 1, 'end station id': 1, _id: 0 })
+
+// using $expr let us use aggregation syntax instead of MQL syntax.
+use('sample_training'); db.trips.find({$expr: { $and: [ { $gt: [ "$tripduration", 1200 ]  }, { $eq: [ "$start station id", "$end station id" ] } ] }}, { 'start station id': 1, 'end station id': 1, 'tripduration': 1, _id: 0 })
+
+use('sample_training'); db.companies.find({$expr: { $eq: ["$permalink", "$twitter_username"] }}, {_id: 1}).count()
+
+use('sample_airbnb'); db.listingsAndReviews.find({reviews: { $size: 50 }, accommodates: { $gt: 6 } }, {accommodates: 1, name: 1, _id: 0})//.count()
+
+use('sample_airbnb'); db.listingsAndReviews.find({property_type: "House", amenities: { $all: [ "Changing table" ]}}, {property_type: 1, amenities: 1, _id: 0}).count()
+
+use('sample_training'); db.grades.find({ $expr: { $and: [ { class_id: 431 }, { $gte: [ { $size: "$scores" }, 1 ] } ] } }, {class_id: 1, scores: 1, _id: 0})
+
+use('sample_training'); db.grades.find({ class_id: 431, scores: { $elemMatch: { score: { $gt: 85 } } } }, { class_id: 431, scores: 1, _id: 0 })
+
+use('sample_training'); db.grades.aggregate([{ $match: { scores: { $elemMatch: { score: { $gt: 85 } } } } }, { $project: { class_id: "$class_id", finalScores: { $filter: { input: "$scores", cond: { $gt: [ "$$this.score", 85] }, as: "this" } } } }])
+
+use('sample_training'); db.companies.find({ offices: { $elemMatch: { city: "Seattle" } } }, { offices: 1, _id: 0}).count()
+
+use('sample_training'); db.companies.aggregate([ { $project: { company: "$name", amountOffices: { $filter: { input: "$offices", cond: { $eq: ["$$office.city", "Seattle"] }, as: "office" } } } }, { $match: { $expr: { $ne: [{ $size: "$amountOffices" }, 0] } } }, { $project: { companies: "$companies", amountOffices: { $size: "$amountOffices" } } } ])
+
+use('sample_training'); db.trips.find({ "start station location.coordinates.0": { $lt: -74 } }, { _id: 1 }).count()
+
+use('sample_training'); db.inspections.find({ "address.city": "NEW YORK" }, { _id: 1 }).count()
+
+use('sample_airbnb'); db.listingsAndReviews.distinct('room_type')
+
+use('sample_training'); db.trips.find({ 'birth year': { $ne: "" } }, { 'birth year': 1, '_id': 0 }).sort({ 'birth year': -1 }).limit(1)
+
+// indexes are created using "createIndex"
+
+// upsert is used when no one document is found, but we want to insert if not found.

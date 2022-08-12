@@ -1,0 +1,148 @@
+// $arrayElemAt, $first, $last, $isArray
+
+
+// $arrayElemAt
+//
+// https://www.mongodb.com/docs/manual/reference/operator/aggregation/arrayElemAt/#mongodb-expression-exp.-arrayElemAt
+//
+// It returns the element at the specified array index.
+//
+// Syntax: { $arrayElemAt: [ <array>, <idx> ] }
+
+use('sample_training'); db.companies.findOne({})
+
+// We are getting the second array element of relationships field inside the companies collection. the array or/and index can be any expression.
+// which in turn is array and index respectively.
+use('sample_training'); db.companies.aggregate([
+  { $project: { _id: false, firstRelationship: { $arrayElemAt: [ "$relationships", { $add: [ 0, 1 ] } ] } } },
+  { $limit: 1}
+])
+
+// It returns the value 3. It is just a dumb example... The index value can be a negative integer, which means that mongo starts counting from the end of the array.
+use('sample_training'); db.companies.aggregate([
+  { $project: { _id: false, firstElement: { $arrayElemAt: [ [ 1, 2, 3, 4 ], 2 ] } } },
+  { $limit: 1 }
+])
+
+// index:
+//  - positive integer, starts from 0 (start of the array) until the length of it.
+//  - negative integer, starts from -length (end of the array) until the start of the array.
+//  - index out of bounds results in no result returned by mongo operation.
+use('sample_training'); db.companies.aggregate([
+  { 
+    $project: 
+    { 
+      _id: false,  
+      positiveInt: { $arrayElemAt: [ [1, 2, 3, 4], 1 ] }, 
+      negativeInt: { $arrayElemAt: [ [1, 2, 3, 4], -2 ] }, 
+      intOutOfBound: { $arrayElemAt: [ [1, 2, 3, 4], 10 ] } // It does not appear, WoW
+    }
+  },
+  { $limit: 1 }
+])
+
+// $first (array operator)
+//
+// https://www.mongodb.com/docs/manual/reference/operator/aggregation/first-array-element/#mongodb-expression-exp.-first
+//
+// Returns the first element in an array
+//
+// { $first: <expression> }
+use('testing'); db.first_operator.insertMany([
+  { array: [1, 2, 3] },   // returns { "firstElement": 1, "lastElement": 3 }
+  { array: [] },          // returns { "firstElement": null, "lastElement": null }
+  { array: [null] },      // returns { "firstElement": null, "lastElement": null }
+  { array: null },        // returns { "firstElement": null, "lastElement": null }
+  { array: [[4]] },       // returns { "firstElement": [4], "lastElement": [4] }
+  { array: [[]] },        // returns { "firstElement": [], "lastElement": [] }
+])
+
+db.first_operator.aggregate([
+  { $match: { $expr: { $isArray: [ "$array" ] } } }, // Just to be safe because first and last return an error if we pass any value different than array, or null
+  { $addFields: { firstElement: { $first: "$array" }, lastElement: { $last: "$array" } } },
+  { $project: { _id: false, firstElement: true, lastElement: true } }
+])
+
+db.first_operator.drop()
+
+// $first (aggregation operator)
+//
+// https://www.mongodb.com/docs/manual/reference/operator/aggregation/first/#mongodb-group-grp.-first
+//
+// Returns the value that results from applying an expression to the first document in a group of documents. Only meaninful when documents are in a defined order.
+// available at:
+//  + $bucket
+//  + $bucketAuto
+//  + $group
+//  + $setWindowFields (>5.0)
+//
+// { $first: <expression> }
+use('testing'); db.order_events.drop(); db.order_events.insertMany([
+  { orderId: "123456789", sender: "UPS", receiver: "Ivan Martinez Alberte", package: "clothes", event_type: "warehouse", datetime: ISODate("2022-01-13T08:00:00Z") },
+  { orderId: "123456789", sender: "UPS", receiver: "Ivan Martinez Alberte", package: "clothes", event_type: "packaging", datetime: ISODate("2022-01-13T12:00:00Z") },
+  { orderId: "123456789", sender: "UPS", receiver: "Ivan Martinez Alberte", package: "clothes", event_type: "packaging", datetime: ISODate("2022-01-13T23:00:00Z") },
+  { orderId: "123456789", sender: "UPS", receiver: "Ivan Martinez Alberte", package: "clothes", event_type: "driving", datetime: ISODate("2022-01-14T08:00:00Z") },
+  { orderId: "123456789", sender: "UPS", receiver: "Ivan Martinez Alberte", package: "clothes", event_type: "received", datetime: ISODate("2022-01-14T13:00:00Z") },
+  { orderId: "987654321", sender: "GLS", receiver: "Noemi Bouzo Gonzalez", package: "Apple watch", event_type: "warehouse", datetime: ISODate("2022-01-13T09:00:00Z") },
+  { orderId: "987654321", sender: "GLS", receiver: "Noemi Bouzo Gonzalez", package: "Apple watch", event_type: "packaging", datetime: ISODate("2022-01-13T14:00:00Z") },
+  { orderId: "987654321", sender: "GLS", receiver: "Noemi Bouzo Gonzalez", package: "Apple watch", event_type: "canceled", datetime: ISODate("2022-01-14T08:00:00Z") }
+])
+
+use('testing'); db.order_events.aggregate([
+  { $sort: { datetime: 1 } },
+  { $group: { _id: { sender: "$sender", orderId: "$orderId" }, firstEvent: { $first: { date: "$datetime", event_type: "$event_type" } }, lastEvent: { $last: { date: "$datetime", event_type: "$event_type" } } } },
+  { $project: { _id: false, sender: "$_id.sender", orderId: "$_id.orderId", firstEvent: { date: "$firstEvent.date", event_type: true }, lastEvent: { date: "$lastEvent.date", event_type: true } } }
+])
+
+// $arrayToObject
+//
+// https://www.mongodb.com/docs/manual/reference/operator/aggregation/arrayToObject/#mongodb-expression-exp.-arrayToObject
+// https://www.mongodb.com/docs/manual/reference/operator/aggregation/objectToArray/#mongodb-expression-exp.-objectToArray
+//
+// Converts and array into a single document; the array must be either:
+//
+// [[ "key", "value" ], [["key", "value"]]]
+// [{k: "keyName", v: "valueName"}, {k: "keyName", v: "valueName"}]
+//
+
+use('testing'); db.array_to_object.drop(); db.array_to_object.insertMany([
+  { propertiesArr: [ ["a", "b"], ["c", "d"] ], propertiesDict: [ { k: "a", v: "b" }, { k: "c", v: "d" } ]},
+  { propertiesArr: [ ["a", "b"], ["a", "d"] ], propertiesDict: [ { k: "a", v: "b" }, { k: "a", v: "d" } ]}, // When keys are duplicated, the last one is the one that is taked (?)
+])
+
+db.array_to_object.aggregate([
+  { $project: { _id: false, propertiesArr: { $arrayToObject: "$propertiesArr" }, propertiesDict: { $arrayToObject: "$propertiesDict" }, propertiesLiteral: { $arrayToObject: { $literal: [["a", "b"], ["c", "d"]] } } } }
+])
+
+db.array_to_object.aggregate([
+  { $addFields: { propertiesWithNumbers: [ { "first": 1, "second": 4 }, { "first": 2, "second": 9 }, { "first": 3, "second": 4 } ] }},
+  { $project: { _id: true, result: { $map: { input: "$propertiesWithNumbers", as: "num", in: { $sum: [ "$$num.first", "$$num.second" ] } } } } },
+  { $limit: 1 }
+])
+
+// $concatArrays
+//
+// https://www.mongodb.com/docs/manual/reference/operator/aggregation/concatArrays/
+//
+// Concatenates Arrays to return the concatenated array.
+//
+
+use('testing'); db.concatenate_arrays.drop(); db.concatenate_arrays.insertMany([
+  { left: { first: 1, second: 2 }, right: { first: 3, second: 4 } }
+])
+
+db.concatenate_arrays.aggregate([
+  { $project: { _id: false, full: { $sum: { $concatArrays: [ [ "$left.first", "$left.second" ], [ "$right.first", "$right.second" ] ] } } } }
+])
+
+db.concatenate_arrays.aggregate([
+  { $project: { _id: false, full: { $sum: { $concatArrays: [ { $map: { input: { $objectToArray: "$left"  }, as: "l", in: "$$l.v" } }, { $map: { input: { $objectToArray: "$right"  }, as: "r", in: "$$r.v" } } ] } } } }
+])
+
+// $filter
+//
+// https://www.mongodb.com/docs/manual/reference/operator/aggregation/filter/#mongodb-expression-exp.-filter
+//
+// Selects a subset of an array to return based on the specified condition. Returns an array with only those elements that match the condition.
+// The returned elements are in the original order.
+// Keep going bro...

@@ -1,0 +1,54 @@
+use('aggregations'); db.movies.findOne({ languages: { $ne: null } })
+
+/**
+imdb.rating is at least 7
+genres does not contain "Crime" or "Horror"
+rated is either "PG" or "G"
+languages contains "English" and "Japanese"
+*/
+use('aggregations'); db.movies.aggregate([
+  {$match: { "imdb.rating": { $gte: 7 }, "genres": { $nin: ["Crime", "Horror"] }, "rated": { $in: ["PG", "G"] }, "languages": { $all: [ "English", "Japanese" ] } }},
+  {$project: { rating: "$imb.rating", genres: 1, rated: 1, languages: 1}},
+  //{$group: { _id: null, count: { $sum: 1 } }}
+])
+  //{$group: { _id: null, amount: { $count: {} }}}
+
+// All the movie titles with no spaces inside using a match with regex.
+use('aggregations'); db.movies.aggregate([
+  {$match: { "title": { $not: { $regex: / / } } }},
+  {$project: { _id: false, title: true }},
+  {$group: {_id: null, count: {$sum: 1}}}
+])
+
+// Getting all the movie titles which don't contain a space inside it. We are using project before, and match after it.
+use('aggregations'); db.movies.aggregate([
+  {$project: { _id: false, title: true, size: { $size: { $split: [ "$title", " " ] } } } },
+  {$match: { size: 1 }},
+  {$limit: 5}
+])
+
+// Getting all the movie titles which don't contain a space inside it. We are using only a match at first with expr aggregation.
+use('aggregations'); db.movies.aggregate([
+  {$match: { $expr: { $eq: [ { $size: { $split: ["$title", " "] } }, 1 ] } }},
+  {$project: { _id: false, title: true }}
+])
+
+use('aggregations'); db.movies.aggregate([
+  { $match: { writers: { $elemMatch: { $exists: true } } } },
+  { $project: { _id: false, writers: { $map: { input: "$writers", as: "writer", in: { $arrayElemAt: [ { $split: [ "$$writer", " (" ] }, 0 ] } } } } }
+])
+
+use('aggregations'); db.movies.aggregate([
+  { $group: { _id: "$_id", xd: { $push: { $setIntersection: [ "$writers", "$directors", "$cast" ] } } } },
+  { $match: { $and: [ { xd: { $ne: [] } }, { xd: { $ne: [null] } } ] } },
+  { $project: { _id: false, xd: true } },
+  { $unwind: "$xd" },
+  { $unwind: "$xd" },
+  { $group: { _id: null, final: { $push: "$xd" } } },
+  { $project: { _id: false, final: true } }
+])
+
+use('aggregations'); db.movies.aggregate([
+  { $project: { _id: false, xd: { $setIntersection: [ [1, 2], [2, 4] ] } } },
+  { $limit: 1 }
+])

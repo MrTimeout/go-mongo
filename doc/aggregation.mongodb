@@ -1,0 +1,39 @@
+
+// Field path: "$fieldName"
+// System variable: "$$UPPERCASE"
+// User variable: "$$foo"
+
+// revise this aggregated query
+use('sample_training'); db.companies.aggregate([{ $match: { relationships: { $elemMatch: { $regex: [ "title", /.*CEO.*/ ] } } } }, { $project: { name: "$name" } }])
+
+use('sample_training'); db.companies.find({}).limit(1)
+
+use('sample_airbnb'); db.listingsAndReviews.find({}).limit(1)
+
+/**
+  [{
+    $group: {
+      _id: { },
+      <field>: { accumulator: <expression> },
+    }
+  }]
+ */
+// Give me all the distinct countries where airbnb has flats to rent sorted in desc order.
+use('sample_airbnb'); db.listingsAndReviews.aggregate([
+  { $group: { _id: { country_code: "$address.country_code", country: "$address.country" }, amountOfFlats: { $count: {  } } } },
+  { $project: { _id: 0, country: "$_id.country", country_code: "$_id.country_code", amountOfFlats: 1 } },
+  { $sort: { amountOfFlats: -1 } }
+])
+
+use('sample_airbnb'); db.listingsAndReviews.aggregate([
+  { $group: { _id: { country_code: "$address.country_code", country: "$address.country" }, amountOfFlats: { $count: {} }, accommodatesSum: { $sum: "$accommodates" } } },
+  { $project: { _id: 0, country: "$_id.country", country_code: "$_id.country_code", amountOfFlats: 1, accomodatesMedium: { $divide: [ "$accommodatesSum", "$amountOfFlats" ] } } },
+  { $sort: { amountOfFlats: -1 } }
+])
+
+use('sample_airbnb'); db.listingsAndReviews.aggregate([
+  { $match: { accommodates: { $gte: 4 } } },
+  { $group: { _id: { country_code: "$address.country_code", country: "$address.country" }, amountOfFlats: { $count: {  } } } },
+  { $project: { _id: 0, country: "$_id.country", country_code: "$_id.country_code", amountOfFlats: 1 } },
+  { $sort: { amountOfFlats: -1 } }
+])
